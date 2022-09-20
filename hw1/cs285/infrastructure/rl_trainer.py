@@ -59,6 +59,7 @@ class RL_Trainer(object):
         ac_dim = self.env.action_space.n if discrete else self.env.action_space.shape[0]
         self.params['agent_params']['ac_dim'] = ac_dim
         self.params['agent_params']['ob_dim'] = ob_dim
+        print(f'\nObservation dimension = {ob_dim}\nAction dimension = {ac_dim}')
 
         # simulation timestep, will be used for video saving
         if 'model' in dir(self.env):
@@ -168,15 +169,17 @@ class RL_Trainer(object):
         # TODO collect `batch_size` samples to be used for training
         # HINT1: use sample_trajectories from utils
         # HINT2: you want each of these collected rollouts to be of length self.params['ep_len']
-        if itr == 0:
+        if load_initial_expertdata is not None and itr == 0:
             print("\nUsing loaded expert data for training...")
             f = open(load_initial_expertdata, 'rb')
             loaded_paths = pickle.loads(f.read())
+            print(f'Number of expert rollouts = {len(loaded_paths)}')
+            print(f'Number of transitions in expert data = {np.sum([utils.get_pathlength(p) for p in loaded_paths])}')
 
             return loaded_paths, 0, None
 
         print("\nCollecting data to be used for training...")
-        paths, envsteps_this_batch = utils.sample_trajectories(self.env, collect_policy, self.params['batch_size'], self.params['ep_len'])
+        paths, envsteps_this_batch = utils.sample_trajectories(self.env, collect_policy, batch_size, self.params['ep_len'])
 
         # collect more rollouts with the same policy, to be saved as videos in tensorboard
         # note: here, we collect MAX_NVIDEO rollouts, each of length MAX_VIDEO_LEN
