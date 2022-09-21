@@ -8,6 +8,7 @@ import numpy as np
 import torch
 from torch import distributions
 
+from cs285.infrastructure import utils
 from cs285.infrastructure import pytorch_util as ptu
 from cs285.policies.base_policy import BasePolicy
 
@@ -86,7 +87,18 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
     # query the policy with observation(s) to get selected action(s)
     def get_action(self, obs: np.ndarray) -> np.ndarray:
-        # TODO: get this from HW1
+        # Assign batch structure to obs.
+        if len(obs.shape) > 1:
+            observation = obs
+        else:
+            observation = obs[None]
+
+        # Convert numpy array to torch array.
+        # Use forward() to get a distribution.
+        # Sample from the distribution.
+        # (Resolve the shape of the action from the calling function)
+        dist = self(ptu.from_numpy(observation))
+        return ptu.to_numpy(dist.sample())
 
     # update/train this policy
     def update(self, observations, actions, **kwargs):
@@ -134,7 +146,17 @@ class MLPPolicyPG(MLPPolicy):
         # HINT2: you will want to use the `log_prob` method on the distribution returned
             # by the `forward` method
 
-        TODO
+        # run forward on the policy to get the action distribution
+        # calculate log prob, multiply with advantage, and take mean to calculate loss
+            # TODO: check if mean should be taken over trajectories
+        # nullify the gradients, call backward, and update the optimizer
+
+        ac_dist = self(observations)
+        loss = -torch.mean(ac_dist.log_prob(actions) * advantages)
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
         if self.nn_baseline:
             ## TODO: update the neural network baseline using the q_values as
@@ -144,7 +166,20 @@ class MLPPolicyPG(MLPPolicy):
             ## Note: You will need to convert the targets into a tensor using
                 ## ptu.from_numpy before using it in the loss
 
-            TODO
+            # normalize the q_values, convert q_values to torch
+            # run forward, calculate the loss, nullify the gradients,
+            # call backward, update the optimizer
+
+            q_values = utils.normalize(q_values, np.mean(q_values), np.std(q_values))
+            q_values = ptu.from_numpy(q_values)
+
+            # TODO: correct dimensions: target = (-1,), input = (-1, 1)
+            values = self.baseline(observations)
+            baseline_loss = self.baseline_loss(values, q_values)
+
+            self.baseline_optimizer.zero_grad()
+            baseline_loss.backward()
+            self.baseline_optimizer.step()
 
         train_log = {
             'Training Loss': ptu.to_numpy(loss),
