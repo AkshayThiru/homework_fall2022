@@ -171,7 +171,7 @@ class MLPPolicyPG(MLPPolicy):
             # call backward, update the optimizer
 
             q_values = utils.normalize(q_values, np.mean(q_values), np.std(q_values))
-            q_values = ptu.from_numpy(q_values)
+            q_values = ptu.from_numpy(q_values[:, np.newaxis])
 
             # TODO: correct dimensions: target = (-1,), input = (-1, 1)
             values = self.baseline(observations)

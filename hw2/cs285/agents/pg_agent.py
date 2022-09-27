@@ -131,10 +131,10 @@ class PGAgent(BaseAgent):
 
                     if terminals[i] == 1:
                         delta_t = rews[i] - values[i]
+                        advantages[i] = delta_t
                     else:
                         delta_t = rews[i] + self.gamma * values[i + 1] - values[i]
-
-                    advantages[i] = delta_t + self.gamma * self.gae_lambda * advantages[i + 1]
+                        advantages[i] = delta_t + self.gamma * self.gae_lambda * advantages[i + 1]
 
                 # remove dummy advantage
                 advantages = advantages[:-1]
