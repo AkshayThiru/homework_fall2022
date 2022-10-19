@@ -86,8 +86,18 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
     # query the policy with observation(s) to get selected action(s)
     def get_action(self, obs: np.ndarray) -> np.ndarray:
-        # TODO: get this from hw1 or hw2
-        return action
+        # Assign batch structure to obs.
+        if len(obs.shape) > 1:
+            observation = obs
+        else:
+            observation = obs[None]
+
+        # Convert numpy array to torch array.
+        # Use forward() to get a distribution.
+        # Sample from the distribution.
+        # (Resolve the shape of the action from the calling function)
+        dist = self(ptu.from_numpy(observation))
+        return ptu.to_numpy(dist.sample())
 
     # update/train this policy
     def update(self, observations, actions, **kwargs):
@@ -99,7 +109,19 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
     # return more flexible objects, such as a
     # `torch.distributions.Distribution` object. It's up to you!
     def forward(self, observation: torch.FloatTensor):
-        # TODO: get this from hw1 or hw2
+        if self.discrete:
+            logits = self.logits_na(observation)
+            action_distribution = distributions.Categorical(logits=logits)
+        else:
+            batch_mean = self.mean_net(observation)
+            scale_tril = torch.diag(torch.exp(self.logstd))
+            batch_dim = batch_mean.shape[0]
+            batch_scale_tril = scale_tril.repeat(batch_dim, 1, 1)
+            action_distribution = distributions.MultivariateNormal(
+                batch_mean,
+                scale_tril=batch_scale_tril,
+            )
+        
         return action_distribution
 
 
@@ -109,5 +131,19 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
 
 class MLPPolicyAC(MLPPolicy):
     def update(self, observations, actions, adv_n=None):
-        # TODO: update the policy and return the loss
+        observations = ptu.from_numpy(observations)
+        actions = ptu.from_numpy(actions)
+        advantages = ptu.from_numpy(adv_n)
+
+        # run forward on the policy to get the action distribution
+        # calculate log prob, multiply with advantage, and take mean to calculate loss
+        # nullify the gradients, call backward, and update the optimizer
+
+        ac_dist = self(observations)
+        loss = -torch.mean(ac_dist.log_prob(actions) * advantages)
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+        
         return loss.item()

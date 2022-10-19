@@ -1,5 +1,6 @@
 import math
 from torch import distributions as dist
+from torch.distributions.transforms import AffineTransform
 import torch.nn.functional as F
 import torch.nn as nn
 
@@ -40,12 +41,13 @@ class TanhTransform(dist.transforms.Transform):
 
 
 class SquashedNormal(dist.transformed_distribution.TransformedDistribution):
-    def __init__(self, loc, scale):
+    def __init__(self, loc, scale, rng):
         self.loc = loc
         self.scale = scale
+        self.rng = rng
 
         self.base_dist = dist.Normal(loc, scale)
-        transforms = [TanhTransform()]
+        transforms = [TanhTransform()] # , AffineTransform(loc=(rng[1] + rng[0]) / 2.0, scale=(rng[1] - rng[0]) / 2.0)]
         super().__init__(self.base_dist, transforms)
 
     @property
